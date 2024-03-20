@@ -1,0 +1,1 @@
+[rust doc](https://www.rust-lang.org/learn)
