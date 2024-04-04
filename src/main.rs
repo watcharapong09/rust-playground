@@ -1,41 +1,57 @@
-use std::{
-    fs,
-    io::prelude::*,
-    net::{TcpListener, TcpStream},
+use axum::{
+    routing::{get, post},
+    http::StatusCode,
+    Json, Router,
 };
+use serde::{Deserialize, Serialize};
 
-fn main() {
-    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
+#[tokio::main]
+async fn main() {
+    // initialize tracing
+    // tracing_subscriber::fmt::init();
 
+    // build our application with a route
+    let app = Router::new()
+        // `GET /` goes to `root`
+        .route("/", get(root))
+        // `POST /users` goes to `create_user`
+        .route("/users", post(create_user));
 
-    for stream in listener.incoming() {
-        let stream = stream.unwrap();
-        handle_connection(stream).unwrap();
-    }    
+    // run our app with hyper, listening globally on port 3000
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    axum::serve(listener, app).await.unwrap();
 }
 
-fn handle_connection(mut stream: TcpStream) -> Result<(), &'static str> {
-    // println!("A");
-    // let buf_reader = BufReader::new(&mut stream);
+// basic handler that responds with a static string
+async fn root() -> &'static str {
+    "Hello, World!"
+}
 
-    // println!("{:#?}", buf_reader);
-    // let request_line = buf_reader.lines().next().unwrap().unwrap();
+async fn create_user(
+    // this argument tells axum to parse the request body
+    // as JSON into a `CreateUser` type
+    Json(payload): Json<CreateUser>,
+) -> (StatusCode, Json<User>) {
+    // insert your application logic here
+    let user = User {
+        id: 1337,
+        username: payload.username,
+    };
 
-    // println!("B");
-    // let (status_line, filename) = if request_line == "GET / HTTP/1.1" {
-    //     ("HTTP/1.1 200 OK", "hello.html")
-    // } else {
-    //     ("HTTP/1.1 404 NOT FOUND", "404.html")
-    // };
+    // this will be converted into a JSON response
+    // with a status code of `201 Created`
+    (StatusCode::CREATED, Json(user))
+}
 
-    let contents = fs::read_to_string("hello.html").unwrap();
+// the input to our `create_user` handler
+#[derive(Deserialize)]
+struct CreateUser {
+    username: String,
+}
 
-    let length = contents.len();
-
-    let response = format!("HTTP/1.1 200 OK\r\nContent-Length: {length}\r\n\r\n{contents}");
-    
-    stream.write_all(response.as_bytes()).unwrap();
-    println!("{response}");
-
-    Ok(())
+// the output to our `create_user` handler
+#[derive(Serialize)]
+struct User {
+    id: u64,
+    username: String,
 }
